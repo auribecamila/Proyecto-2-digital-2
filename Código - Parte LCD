@@ -1,0 +1,183 @@
+//******************************************/
+// Universidad del Valle de Guatemala
+// BE3029 - Electronica Digital 2
+// Stephany Mejia
+// 22/09/2026
+// Proyecto 2 - Parte LCD
+// MCU: ESP32 dev kit 1.0
+//******************************************/
+
+//******************************************/
+// Librerias
+//******************************************/
+
+#include <Arduino.h>
+#include <stdint.h>
+#include <LiquidCrystal.h>
+
+//******************************************/
+// Definiciones
+//******************************************/
+
+// Pin de señal del potenciometro
+#define POT1 34
+
+// Pines de control del LCD
+#define LCD_RS 13
+#define LCD_E  14
+
+// Pines de datos del LCD
+#define LCD_D0 16
+#define LCD_D1 17
+#define LCD_D2 18
+#define LCD_D3 19
+#define LCD_D4 21
+#define LCD_D5 22
+#define LCD_D6 23
+#define LCD_D7 32
+
+//******************************************/
+// LCD
+//******************************************/
+
+// Configuracion del LCD en modo de 8 bits
+LiquidCrystal lcd(LCD_RS, LCD_E,
+                  LCD_D0, LCD_D1, LCD_D2, LCD_D3,
+                  LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+
+//******************************************/
+// Prototipos de funciones
+//******************************************/
+
+// Funcion para mostrar los datos en el LCD
+void mostrarLCD(float voltaje, uint8_t valorPot);
+
+//******************************************/
+// Variables globales
+//******************************************/
+
+// Guarda la lectura original del ADC de 0 a 4095
+int lecturaADC = 0;
+
+// Guarda el valor convertido de 0 a 255
+uint8_t valorPot = 0;
+
+// Guarda el voltaje del potenciometro
+float voltaje = 0.0;
+
+// Letra del ultimo LED activado
+char ultimoLED = 'R';
+
+//******************************************/
+// Configuracion
+//******************************************/
+
+void setup() {
+
+  // Inicializar comunicacion serial
+  Serial.begin(115200);
+
+  // Configurar el ADC con resolucion de 12 bits
+  // La lectura sera de 0 a 4095
+  analogReadResolution(12);
+
+  // Configurar el potenciometro como entrada
+  pinMode(POT1, INPUT);
+
+  // Inicializar LCD de 16 columnas y 2 filas
+  lcd.begin(16, 2);
+
+  // Limpiar la pantalla LCD
+  lcd.clear();
+}
+
+//******************************************/
+// Loop Principal
+//******************************************/
+
+void loop() {
+
+  //******************************************/
+  // Leer potenciometro
+  //******************************************/
+
+  // Leer el valor analogico del potenciometro
+  // El ADC entrega valores entre 0 y 4095
+  lecturaADC = analogRead(POT1);
+
+  //lectura de 12 bits (0-4095) a un valor de 8 bits (0-255)
+  valorPot = map(lecturaADC, 0, 4095, 0, 255);
+
+  // Convertir la lectura del ADC a voltios
+  // El potenciometro esta conectado a 3.3 V
+  voltaje = lecturaADC * 3.3 / 4095.0;
+
+  //******************************************/
+  // Mostrar valores por UART
+  //******************************************/
+
+  // Mostrar voltaje
+  Serial.print("Pot1: ");
+  Serial.print(voltaje, 2);
+  Serial.print(" V   ");
+
+  // Mostrar valor de 0 a 255
+  Serial.print("Pot1: ");
+  Serial.print(valorPot);
+
+  // Mostrar letra del LED
+  Serial.print("   LED: ");
+  Serial.println(ultimoLED);
+
+  //******************************************/
+  // Mostrar valores en LCD
+  //******************************************/
+
+  mostrarLCD(voltaje, valorPot);
+
+  // Esperar 200 ms antes de volver a leer
+  delay(200);
+}
+
+//******************************************/
+// Otras funciones
+//******************************************/
+
+void mostrarLCD(float voltaje, uint8_t valorPot) {
+
+  //******************************************/
+  // Primera fila
+  //******************************************/
+
+  // Colocar cursor al inicio de la primera fila
+  lcd.setCursor(0, 0);
+
+  // Mostrar Pot1 en voltios
+  lcd.print("Pot1:");
+  lcd.print(voltaje, 2);
+  lcd.print("V");
+
+  // Borrar caracteres anteriores
+  lcd.print("   ");
+
+  //******************************************/
+  // Segunda fila
+  //******************************************/
+
+  // Colocar cursor al inicio de la segunda fila
+  lcd.setCursor(0, 1);
+
+  // Mostrar Pot1 convertido de 0 a 255
+  lcd.print("Pot1:");
+  lcd.print(valorPot);
+
+  // Borrar caracteres anteriores
+  lcd.print("   ");
+
+  // Colocar cursor para mostrar el LED
+  lcd.setCursor(11, 1);
+
+  // Mostrar la inicial del ultimo LED
+  lcd.print("LED:");
+  lcd.print(ultimoLED);
+}
