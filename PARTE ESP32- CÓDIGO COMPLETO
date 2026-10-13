@@ -1,0 +1,473 @@
+//******************************************/
+// Universidad del Valle de Guatemala
+// BE3029 - Electronica Digital 2
+// Stephany Mejia
+//Camila Aristizabal
+// Proyecto 2
+// Parte ESP32 FINAL
+// MCU: ESP32 dev kit 1.0
+//******************************************/
+
+//******************************************/
+// Librerias
+//******************************************/
+
+#include <Arduino.h>
+#include <stdint.h>
+#include <LiquidCrystal.h>
+#include <ESP32SPISlave.h>
+#include <Wire.h> // Libreria para la comunicacion I2C
+
+//******************************************/
+// Definiciones
+//******************************************/
+
+// Pin de señal del potenciometro
+#define POT1 34
+
+//******************************************/
+// PINES
+//******************************************/
+
+//******************************************/
+// Pines LCD
+//******************************************/
+
+#define LCD_RS 13
+#define LCD_E 14
+
+// LCD en modo de 4 bits
+#define LCD_D4 21
+#define LCD_D5 22
+#define LCD_D6 27
+#define LCD_D7 32
+
+//******************************************/
+// Pines LEDs
+//******************************************/
+
+#define LED1 4
+#define LED2 15
+#define LED3 33
+
+//******************************************/
+// SPI
+//******************************************/
+
+// Solamente una transaccion SPI pendiente
+#define QUEUE_SIZE 1
+
+//******************************************/
+// Pines para la comunicacion I2C
+//******************************************/
+
+#define I2C_SDA 16 // Pin de datos I2C -> Recibe y transmite datos
+#define I2C_SCL 17 // Pin de reloj I2C ->Recibe el reloj I2C
+
+#define I2C_DIRECCION 0x08 // Dirección con la que la Nucleo identificará al ESP32
+
+//******************************************/
+// LCD
+//******************************************/
+
+// Inicializar LCD utilizando 4 bits de datos
+LiquidCrystal lcd(LCD_RS, LCD_E,
+                  LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+
+//******************************************/
+// SPI Slave
+//******************************************/
+
+ESP32SPISlave slave;
+
+// Buffer que recibe los datos de la Nucleo
+//
+// Byte 0 = numero de LED
+// Byte 1 = parte alta del tiempo
+// Byte 2 = parte baja del tiempo
+
+uint8_t datosRecibidos[3] = {0, 0, 0};
+
+// Buffer de transmision
+uint8_t datosEnviar[3] = {0, 0, 0};
+
+//******************************************/
+// Variables globales
+//******************************************/
+
+// Lectura ADC de 0 a 4095
+int lecturaADC = 0;
+
+// Valor convertido de 0 a 255
+uint8_t valorPot = 0;
+
+// Voltaje del potenciometro
+float voltaje = 0.0;
+
+// Ultimo LED activado
+char ultimoLED = '-';
+
+// Tiempo para actualizar LCD
+unsigned long tiempoLCD = 0;
+
+// Variables para controlar los LEDs sin delay
+// Momento en que se encendio el LED
+unsigned long inicioLED = 0;
+
+// Tiempo que debe permanecer encendido
+uint16_t duracionLED = 0;
+
+// Numero del LED activo
+uint8_t ledActivo = 0;
+
+//******************************************/
+// Prototipos
+//******************************************/
+
+// Funcion para enviar la lectura del potenciometro por I2C
+void enviarDatoI2C();
+
+void mostrarLCD(float voltaje, uint8_t valorPot);
+
+void ejecutarLED(uint8_t numeroLED,
+                 uint16_t tiempo);
+
+// Funcion para apagar el LED cuando termine su tiempo
+void actualizarLED();
+
+//******************************************/
+// FUNCIONES
+//******************************************/
+
+void enviarDatoI2C()
+{
+}
+
+// Apagar LED cuando termine su tiempo
+
+void actualizarLED()
+{
+    // Verificar si hay un LED encendido
+    if (ledActivo != 0)
+    {
+        // Comprobar si ya transcurrio el tiempo indicado
+        if (millis() - inicioLED >= duracionLED)
+        {
+            // Apagar el LED que estaba activo
+            if (ledActivo == 1)
+            {
+                digitalWrite(LED1, LOW);
+            }
+            else if (ledActivo == 2)
+            {
+                digitalWrite(LED2, LOW);
+            }
+            else if (ledActivo == 3)
+            {
+                digitalWrite(LED3, LOW);
+            }
+
+            // Indicar que ya no hay un LED encendido
+            ledActivo = 0;
+
+            Serial.println("LED apagado");
+        }
+    }
+}
+//******************************************/
+// SETUP
+//******************************************/
+
+void setup()
+{
+    //******************************************/
+    // UART
+    //******************************************/
+
+    Serial.begin(115200);
+
+    //******************************************/
+    // Configurar ESP32 como esclavo I2C
+    //******************************************/
+
+    // Iniciar I2C con la direccion y los pines seleccionados
+    Wire.begin(I2C_DIRECCION, I2C_SDA, I2C_SCL, 100000);
+
+    // Indicar función que debe ejecutarse cuando la Nucleo solicite una lectura
+    Wire.onRequest(enviarDatoI2C);
+
+    //******************************************/
+    // ADC
+    //******************************************/
+
+    analogReadResolution(12);
+
+    pinMode(POT1, INPUT);
+
+    //******************************************/
+    // LEDs
+    //******************************************/
+
+    pinMode(LED1, OUTPUT);
+    pinMode(LED2, OUTPUT);
+    pinMode(LED3, OUTPUT);
+
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, LOW);
+    digitalWrite(LED3, LOW);
+
+    //******************************************/
+    // LCD
+    //******************************************/
+
+    lcd.begin(16, 2);
+
+    lcd.clear();
+
+    //******************************************/
+    // SPI SLAVE
+    //******************************************/
+
+    // SPI Mode 0
+    slave.setDataMode(SPI_MODE0);
+
+    // Una transaccion pendiente
+    slave.setQueueSize(QUEUE_SIZE);
+
+    // Inicializar ESP32 como SPI Slave
+    //
+    // CS   = GPIO 5
+    // SCK  = GPIO 18
+    // MOSI = GPIO 23
+    // MISO = GPIO 19
+
+    slave.begin(VSPI);
+
+    //******************************************/
+    // Mensaje inicial
+    //******************************************/
+
+    Serial.println();
+    Serial.println("==============================");
+    Serial.println("       ESP32 SPI SLAVE");
+    Serial.println("==============================");
+    // Serial.println("Esperando comando...");
+}
+
+//******************************************/
+// LOOP
+//******************************************/
+
+void loop()
+{
+
+    // Revisar si debe apagarse el LED activo
+    actualizarLED();
+
+    //******************************************/
+    // Configurar la recepcion de datos SPI
+    //******************************************/
+
+    if (slave.hasTransactionsCompletedAndAllResultsHandled())
+    {
+
+        // Limpiar datos anteriores
+
+        datosRecibidos[0] = 0;
+        datosRecibidos[1] = 0;
+        datosRecibidos[2] = 0;
+
+        // Preparar una transaccion de 3 bytes
+        //
+        // datosEnviar     ESP32 -> Nucleo
+        // datosRecibidos  Nucleo -> ESP32
+
+        slave.queue(datosEnviar,
+                    datosRecibidos,
+                    3);
+
+        // Habilitar la transaccion
+
+        slave.trigger();
+    }
+
+    //******************************************/
+    // Verificar si llegaron los 3 bytes
+    //******************************************/
+
+    if (slave.hasTransactionsCompletedAndAllResultsReady(QUEUE_SIZE))
+    {
+
+        // Obtener resultado de la transaccion
+
+        slave.numBytesReceivedAll();
+
+        //******************************************/
+        // Obtener numero de LED
+        //******************************************/
+
+        uint8_t numeroLED =
+            datosRecibidos[0];
+
+        //******************************************/
+        // Obtener el tiempo recibido por SPI
+        //******************************************/
+
+        // Byte 1 = MSB
+        // Byte 2 = LSB
+
+        // Guarda valores de 0 a 65535
+        uint16_t tiempo =
+            ((uint16_t)datosRecibidos[1] << 8) // byte más significativo 8 posiciones -> D
+            |                                  // Combina
+            datosRecibidos[2];
+
+        //******************************************/
+        // Verificar datos
+        //******************************************/
+
+        if (numeroLED >= 1 && // Mayor o igual a 1
+            numeroLED <= 3 && // No mayor a 3
+            tiempo > 0)       // Mayor a 0
+        {
+
+            // Ejecutar accion
+
+            ejecutarLED(numeroLED,
+                        tiempo);
+        }
+
+        else
+        {
+
+            Serial.println("Comando SPI invalido");
+        }
+
+        Serial.println("Esperando nuevo comando...");
+    }
+
+    //******************************************/
+    // Leer potenciometro
+    //******************************************/
+
+    // Leer el potenciometro 10 veces para reducir el ruido
+    int sumaADC = 0;
+
+    for (int i = 0; i < 10; i++)
+    {
+        sumaADC += analogRead(POT1);
+    }
+
+    // Calcular el promedio de las lecturas
+    lecturaADC = sumaADC / 10;
+    // Convertir de 12 bits a 8 bits
+
+    valorPot = map(lecturaADC,
+                   0,
+                   4095,
+                   0,
+                   255);
+
+    // Preparar el valor del potenciometro para la
+    // siguiente solicitud I2C de la Nucleo
+    Wire.slaveWrite(&valorPot, 1);
+    // Convertir ADC a voltios
+
+    voltaje =
+        lecturaADC * 3.3 / 4095.0;
+
+    //******************************************/
+    // Actualizar LCD cada 200 ms
+    //******************************************/
+
+    if (millis() - tiempoLCD >= 200)
+    {
+
+        tiempoLCD = millis();
+
+        mostrarLCD(voltaje,
+                   valorPot);
+    }
+}
+
+//******************************************/
+// EJECUTAR LED
+//******************************************/
+
+void ejecutarLED(uint8_t numeroLED, uint16_t tiempo)
+{
+    // Apagar los LEDs antes de activar uno nuevo
+    digitalWrite(LED1, LOW);
+    digitalWrite(LED2, LOW);
+    digitalWrite(LED3, LOW);
+
+    // Guardar el tiempo de inicio y la duracion
+    inicioLED = millis();
+    duracionLED = tiempo;
+    ledActivo = numeroLED;
+
+    // Encender el LED seleccionado
+    if (numeroLED == 1)
+    {
+        ultimoLED = 'R';
+        digitalWrite(LED1, HIGH);
+        Serial.println("Encendiendo LED 1-R");
+    }
+    else if (numeroLED == 2)
+    {
+        ultimoLED = 'G';
+        digitalWrite(LED2, HIGH);
+        Serial.println("Encendiendo LED 2-G");
+    }
+    else if (numeroLED == 3)
+    {
+        ultimoLED = 'B';
+        digitalWrite(LED3, HIGH);
+        Serial.println("Encendiendo LED 3-B");
+    }
+}
+
+//******************************************/
+// MOSTRAR LCD
+//******************************************/
+
+void mostrarLCD(float voltaje,
+                uint8_t valorPot)
+{
+
+    //******************************************/
+    // Primera fila
+    //******************************************/
+
+    lcd.setCursor(0, 0);
+
+    lcd.print("Pot1:");
+
+    lcd.print(voltaje, 2);
+
+    lcd.print("V");
+
+    lcd.print("   ");
+
+    //******************************************/
+    // Segunda fila
+    //******************************************/
+
+    lcd.setCursor(0, 1);
+
+    lcd.print("Pot1:");
+
+    lcd.print(valorPot);
+
+    lcd.print("   ");
+
+    //******************************************/
+    // Mostrar ultimo LED
+    //******************************************/
+
+    lcd.setCursor(11, 1);
+
+    lcd.print("LED:");
+
+    lcd.print(ultimoLED);
+}
