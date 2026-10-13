@@ -1,3 +1,4 @@
+
 # Proyecto 2 – Protocolos de Comunicación Serial y Timers
 
 **Universidad del Valle de Guatemala**  
@@ -9,17 +10,17 @@
 
 ## Descripción
 
-En este proyecto implementamos la comunicación entre una computadora, una NUCLEO-F446RE y un ESP32 mediante los protocolos UART, SPI e I2C.
+El proyecto consiste en implementar un sistema de comunicación entre una computadora, una NUCLEO-F446RE y un ESP32 mediante los protocolos UART, SPI e I2C.
 
-La Nucleo funciona como maestro y controlador principal, mientras que el ESP32 se encarga del control de tres LEDs, la lectura de un potenciómetro y la visualización de datos en una pantalla LCD 16×2.
+La Nucleo funciona como controlador principal, mientras que el ESP32 se encarga de controlar tres LEDs, leer un potenciómetro y mostrar información en una pantalla LCD 16×2.
 
-También trabajamos con un temporizador para generar una señal cuadrada. El circuito se integró en una maqueta de un tractor con remolque.
+Además, se trabaja con un temporizador para generar una señal cuadrada. El circuito se integra en una maqueta de un tractor con remolque, simulando el control y monitoreo de maquinaria agrícola.
 
 ## Objetivos
 
-1. Implementar UART, SPI e I2C para comunicar la computadora, la Nucleo y el ESP32.
-2. Controlar LEDs, leer un potenciómetro mediante ADC y mostrar los datos en una LCD.
-3. Utilizar temporizadores para generar una señal cuadrada sin detener las demás funciones.
+1. Implementar los protocolos UART, SPI e I2C para establecer comunicación entre la computadora, la Nucleo y el ESP32.
+2. Controlar LEDs, adquirir datos de un potenciómetro mediante ADC y mostrar la información en una pantalla LCD.
+3. Configurar temporizadores para generar una señal cuadrada sin detener las demás funciones del sistema.
 
 ## Materiales
 
@@ -33,48 +34,52 @@ También trabajamos con un temporizador para generar una señal cuadrada. El cir
 
 ## Funcionamiento
 
-### 1. UART
+### 1. Comunicación UART
 
-Utilizamos USART2 a 115200 baudios para comunicar la computadora con la Nucleo.
+Se utiliza USART2 a 115200 baudios para establecer comunicación entre la computadora y la Nucleo.
 
-Al iniciar el programa aparece un menú:
+Al iniciar el programa, se muestra el siguiente menú:
 
     1. Controlar dispositivo SPI
     2. Obtener medicion de sensor I2C
 
-La Nucleo recibe los comandos mediante UART. Utilizamos `\r` para identificar el final de cada instrucción y `sscanf()` para separar y validar los valores.
+La Nucleo recibe los comandos mediante UART. Se utiliza `\r` para identificar el final de cada instrucción y `sscanf()` para separar y validar los valores ingresados.
 
-### 2. SPI
+### 2. Comunicación SPI
 
-Configuramos SPI1 en modo maestro, Full-Duplex, con datos de 8 bits y modo SPI 0.
+Se configura SPI1 en modo maestro, Full-Duplex, con datos de 8 bits y modo SPI 0.
 
 La Nucleo envía al ESP32 el número del LED y el tiempo que debe permanecer encendido.
 
-Por ejemplo, `1,500` indica que el LED 1 debe encenderse durante 500 ms.
+Por ejemplo, el comando `1,500` indica que el LED 1 debe encenderse durante 500 ms.
 
-El comando se envía en tres bytes: número del LED, parte alta y parte baja del tiempo. En el ESP32 se reconstruye el tiempo y se utiliza `millis()` para controlar el apagado sin bloquear el programa.
+La información se transmite mediante tres bytes: número del LED, parte alta y parte baja del tiempo. El ESP32 reconstruye el valor recibido y utiliza `millis()` para controlar el apagado sin bloquear el programa.
 
-### 3. I2C y ADC
+### 3. Comunicación I2C y ADC
 
-Configuramos I2C1 a 100 kHz, con direccionamiento de 7 bits.
+Se configura I2C1 a 100 kHz, con direccionamiento de 7 bits.
 
 La Nucleo funciona como maestro y solicita al ESP32, cuya dirección es `0x08`, la medición del potenciómetro.
 
-El ESP32 utiliza su ADC de 12 bits para obtener un valor entre 0 y 4095. Luego convierte la medición a un rango de 0 a 255 para enviarla mediante I2C.
+El ESP32 utiliza su ADC de 12 bits para obtener valores entre 0 y 4095. Posteriormente, la medición se convierte a un rango de 0 a 255 para transmitirla mediante un byte por I2C.
+
+La Nucleo recibe el dato y lo muestra en la terminal serial.
 
 ### 4. Pantalla LCD
 
-Utilizamos una LCD 16×2 conectada al ESP32 en modo de 4 bits.
+Se utiliza una pantalla LCD 16×2 conectada al ESP32 en modo de 4 bits.
 
-La pantalla muestra el voltaje del potenciómetro, la lectura digital del ADC y la inicial del último LED activado.
+La pantalla permite visualizar el voltaje del potenciómetro, el valor digital del ADC y la inicial del último LED activado.
 
-### 5. Timers
+### 5. Temporizadores
 
-Trabajamos con TIM3 de la Nucleo para generar una señal cuadrada.
+Se trabaja con TIM3 de la Nucleo para generar una señal cuadrada.
 
 La configuración de prescaler 8399 y período 4999, con un reloj de 84 MHz, permite obtener un evento cada 500 ms.
 
-Para el comando `1,500`, la señal debe permanecer 500 ms en alto y 500 ms en bajo. El objetivo es actualizar ese tiempo según el comando ingresado y mantener funcionando las demás comunicaciones.
+Para el comando `1,500`, la señal debe permanecer 500 ms en nivel alto y 500 ms en nivel bajo, obteniendo un período total de 1000 ms.
+
+El objetivo es que el tiempo pueda actualizarse según el comando ingresado, sin detener las demás comunicaciones del sistema.
 
 ## Pines utilizados
 
@@ -115,29 +120,48 @@ Para el comando `1,500`, la señal debe permanecer 500 ms en alto y 500 ms en ba
 | D7 | GPIO32 |
 | RW | GND |
 
-Todas las conexiones entre microcontroladores comparten GND. Las líneas I2C utilizan resistencias pull-up hacia 3.3 V.
+Ambos microcontroladores comparten GND. Las líneas I2C utilizan resistencias pull-up hacia 3.3 V.
 
 ## Librerías utilizadas
 
 ### NUCLEO-F446RE – STM32 HAL
 
-- `HAL_UART_Transmit()` y `HAL_UART_Receive_IT()` para UART.
-- `HAL_SPI_Transmit()` para SPI.
-- `HAL_I2C_Master_Receive()` para I2C.
-- `HAL_GPIO_WritePin()` para controlar salidas.
+Se utilizan las funciones de la librería HAL para controlar los diferentes periféricos:
+
+- `HAL_UART_Transmit()` y `HAL_UART_Receive_IT()`: comunicación UART.
+- `HAL_SPI_Transmit()`: envío de datos mediante SPI.
+- `HAL_I2C_Master_Receive()`: recepción de datos mediante I2C.
+- `HAL_GPIO_WritePin()`: control de salidas digitales.
 
 ### ESP32 – PlatformIO
 
-- `Arduino.h`: funciones generales.
-- `stdint.h`: tipos de datos.
-- `LiquidCrystal.h`: pantalla LCD.
-- `ESP32SPISlave.h`: comunicación SPI.
+- `Arduino.h`: funciones generales del ESP32.
+- `stdint.h`: manejo de tipos de datos.
+- `LiquidCrystal.h`: control de la pantalla LCD.
+- `ESP32SPISlave.h`: comunicación SPI como esclavo.
 - `Wire.h`: comunicación I2C.
 
-También utilizamos `analogRead()` para leer el potenciómetro y `millis()` para manejar los tiempos de los LEDs.
+También se utilizan `analogRead()` para adquirir la lectura del potenciómetro y `millis()` para controlar los tiempos de los LEDs sin detener el programa.
 
 ## Resultados y conclusiones
 
-Con este proyecto integramos UART, SPI e I2C para comunicar dos microcontroladores y una computadora. Logramos trabajar con el control de LEDs, la adquisición de datos analógicos y la visualización de información en una pantalla LCD.
+El proyecto permite integrar los protocolos UART, SPI e I2C para establecer comunicación entre dos microcontroladores y una computadora.
 
-Además, estudiamos la configuración de temporizadores para generar señales periódicas sin detener las demás funciones del sistema.
+Mediante SPI se realiza el control de los LEDs, mientras que I2C permite solicitar la medición del potenciómetro. Además, el ADC convierte la señal analógica en un valor digital y la pantalla LCD permite visualizar la información.
+
+También se trabaja con la configuración de temporizadores para generar señales periódicas sin interrumpir las demás funciones.
+
+De esta manera, se demuestra cómo diferentes protocolos y periféricos pueden integrarse dentro de un mismo sistema.
+
+## Evidencias
+
+**Montaje del circuito y maqueta:**  
+Agregar fotografías.
+
+**Diagrama de flujo:**  
+Agregar imagen.
+
+**Video de funcionamiento:**  
+Agregar enlace de YouTube.
+
+---
