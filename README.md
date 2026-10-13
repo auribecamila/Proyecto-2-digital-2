@@ -147,22 +147,7 @@ También se utilizaron `analogRead()` para adquirir la lectura del potenciómetr
 
 En este proyecto se integraron los protocolos UART, SPI e I2C para establecer comunicación entre dos microcontroladores y una computadora.
 
-Mediante SPI se realizó el control de los LEDs, mientras que I2C permitió solicitar la medición del potenciómetro. Además, se utilizó el ADC para convertir la señal analógica en un valor digital y una pantalla LCD para visualizar la información.
-
-También se trabajó con la configuración de temporizadores y se comprendió la importancia de generar señales periódicas sin interrumpir las demás funciones del sistema.
+Mediante SPI se realizó el control de los LEDs, mientras que I2C permitió solicitar la medición del potenciómetro. Además, se utilizó el ADC para convertir la señal analógica en un valor digital y una pantalla LCD para visualizar la información. También se trabajó con la configuración de temporizadores y se comprendió la importancia de generar señales periódicas sin interrumpir las demás funciones del sistema.
 
 El proyecto permitió aplicar los conocimientos adquiridos durante el curso y comprender cómo diferentes protocolos y periféricos podían integrarse dentro de un mismo sistema.
 
-## Evidencias
-
-**Montaje del circuito y maqueta:**  
-Agregar fotografías.
-
-**Diagrama de flujo:**  
-Agregar imagen.
-
-**Video de funcionamiento:**  
-Agregar enlace de YouTube.
-
----
-\
